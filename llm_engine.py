@@ -23,7 +23,7 @@ import dialogue
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
 REQUEST_TIMEOUT = 20  # generous: a cold model load can take several seconds
-HISTORY_TURNS = 6     # how many past messages (both sides) to feed back in
+HISTORY_TURNS = 20    # ~10 back-and-forth rounds (both sides) fed back in as context
 
 
 def _post(path: str, payload: dict, timeout: int = REQUEST_TIMEOUT) -> dict:
@@ -124,43 +124,49 @@ def generate_intro(agent) -> str:
     return dialogue.generate_intro(agent["speaking_style"])
 
 
-# Few-shot demonstrations of *abstraction*, not restating — each maps a
-# mundane real-life statement onto an unrelated-sounding fantasy/game quest.
-# Deliberately spans chores/errands/exercise/study/work so the model doesn't
-# anchor on any one domain (a single study-flavored example was enough to
-# make it default to literally restating study content back).
-_TASK_FEW_SHOTS = [
-    ("该收拾一下房间了", "清扫遗迹尘埃", "把废弃遗迹里堆积的尘埃杂物清理干净"),
+# Fixed contrast pair that teaches "the quest's theme should follow the
+# character's own identity", not a uniform fantasy-quest-board template —
+# a math-teacher persona should hand out math commissions, not monster hunts.
+_PERSONA_CONTRAST_SHOTS = (
+    '假如人设是"数学老师"，用户说"该复习数学了" → 钻研奥数难题|挑战一道有难度的奥数题\n'
+    '假如人设是"冒险向导"，用户说"该收拾房间了" → 清扫遗迹尘埃|把废弃遗迹里堆积的尘埃杂物清理干净'
+)
+
+# One extra generic example, rotated in for variety when the agent has little
+# persona to go on (a blank/vague persona should still fall back to loose
+# fantasy-adventurer flavor rather than producing nothing usable).
+_GENERIC_TASK_FEW_SHOTS = [
     ("我要去楼下取个快递", "护送物资返回营地", "把城郊送来的物资安全带回营地"),
     ("该去健身房练一下了", "讨伐训练场魔像", "挑战训练场里的木桩魔像，磨炼体魄"),
-    ("我要复习明天的考试", "抄录古卷文书", "静心誊抄一份重要的古老卷宗"),
     ("赶紧把这份报告写完", "赶制紧急魔导契约", "在期限之前完成这份重要的契约文书"),
-    ("该洗衣服叠被子了", "整顿营帐军需", "把营帐里的物资一一清点叠放整齐"),
     ("出门买点菜回来做饭", "前往集市采买", "去镇上的集市采购今日所需的食材"),
 ]
 
 
-def _invent_task(agent, user_text: str):
-    """Ask the LLM to invent a themed *fantasy/game-world* task for whatever
-    real-life thing the user just mentioned — deliberately NOT a literal
-    restating of it (a study session should be able to become a "monster
-    hunt" just as easily as chores can become a "cleanup quest").
+def _invent_task(agent, messages, user_text: str):
+    """Ask the LLM to invent a task themed after *this character's own
+    identity* — not a one-size-fits-all fantasy quest template. A math-teacher
+    persona should hand out math commissions; an adventurer-guide persona
+    should hand out expeditions. Sees the recent conversation (via `messages`,
+    already trimmed to HISTORY_TURNS) so it can pick up on context the user
+    mentioned earlier, not just the triggering line.
     Falls back to the static TASK_LIBRARY on any failure or unparsable output."""
-    examples = random.sample(_TASK_FEW_SHOTS, k=2)
-    example_text = "\n".join(f'用户说"{u}" → {n}|{d}' for u, n, d in examples)
+    generic_example = random.choice(_GENERIC_TASK_FEW_SHOTS)
+    generic_text = f'用户说"{generic_example[0]}" → {generic_example[1]}|{generic_example[2]}'
     prompt = (
-        f'用户刚才说："{user_text}"，透露出想专注做一件现实中的事情。\n'
-        "请不要照抄用户具体在做什么，而是把它抽象转化成一个奇幻/游戏世界风格的「委托」——"
-        "可以是讨伐、护送、跑腿、整理、侦查、采买等任意类型，让这件现实任务获得游戏化的沉浸感。\n"
-        "参考下面例子体会「抽象转化」的感觉（不要照抄例子本身）：\n"
-        f"{example_text}\n\n"
-        "现在请你为用户刚才那句话构思一个新的委托。只能使用简体中文，不要出现任何英文单词、"
+        f'用户刚才说："{user_text}"，透露出想主动接一份委托。\n'
+        "请结合你自己的人设身份来构思这份委托——委托的方向和风格要贴合你这个角色本身会给出的任务类型"
+        "（比如人设是数学老师，就该给数学相关的委托；人设是冒险向导，就该给探险类委托），"
+        "而不是所有角色都套用同一套讨伐/护送模板。也可以参考上面的对话内容寻找灵感。\n"
+        "参考下面例子体会「委托要贴合人设」的感觉（不要照抄例子本身，你要用你自己的人设）：\n"
+        f"{_PERSONA_CONTRAST_SHOTS}\n{generic_text}\n\n"
+        "现在请你结合你的人设，为用户刚才那句话构思一个新的委托。只能使用简体中文，不要出现任何英文单词、"
         "数字时长或与例子无关的内容。严格按下面的格式只输出一行，用英文竖线 | 分隔，"
         "不要输出任何其他文字、标签或解释：\n"
         "<委托名称，4到8个字>|<委托简介，不超过16个字>"
     )
     try:
-        raw = _chat(agent, [{"role": "user", "content": prompt}], num_predict=60, temperature=0.6)
+        raw = _chat(agent, messages + [{"role": "user", "content": prompt}], num_predict=60, temperature=0.6)
         name, desc = _parse_pipe_task(raw)
         if name and desc:
             return name, desc
@@ -190,7 +196,7 @@ def generate_reply(agent, history, user_text: str, force: bool = False):
             line = _clean(line) if line else dialogue.generate_task_offer_line(agent["speaking_style"])
         except Exception:
             line = dialogue.generate_task_offer_line(agent["speaking_style"])
-        name, desc = _invent_task(agent, user_text)
+        name, desc = _invent_task(agent, messages, user_text)
         return line, (name, desc)
 
     try:

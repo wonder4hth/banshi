@@ -76,7 +76,7 @@ def get_owned_agent(agent_id: int, user_id: int):
     ).fetchone()
 
 
-def get_recent_history(conn, agent_id: int, user_id: int, limit: int = 8):
+def get_recent_history(conn, agent_id: int, user_id: int, limit: int = 20):
     """Oldest-first list of recent messages, for feeding conversational context to the LLM."""
     rows = conn.execute(
         "SELECT sender, content FROM messages WHERE agent_id = ? AND user_id = ? "
