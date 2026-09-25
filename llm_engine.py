@@ -143,30 +143,61 @@ _GENERIC_TASK_FEW_SHOTS = [
 ]
 
 
-def _invent_task(agent, messages, user_text: str):
+_CONTEXT_CHAR_CAP = 800  # safety cap so a very chatty history can't blow up the prompt
+
+
+def _format_recent_context(agent, history) -> str:
+    """Flatten recent chat history into one plain, readable transcript block.
+
+    This is deliberately a separate flat-text variable rather than folding
+    history into the chat-format `messages` array for this call: a 3B model
+    reliably reads "the character's identity" out of a same-length structured
+    array (that's the system prompt, always first) but was inconsistent about
+    pulling specific nouns/topics back out of it. Restating the recent turns
+    as plain text right next to the generation instruction measurably helps
+    smaller models actually use that detail instead of just defaulting to
+    the broad persona theme.
+    """
+    if not history:
+        return "（还没有聊过）"
+    lines = [
+        f"{'用户' if m['sender'] == 'user' else agent['name']}：{m['content']}"
+        for m in history
+    ]
+    text = "\n".join(lines)
+    if len(text) > _CONTEXT_CHAR_CAP:
+        text = "…" + text[-_CONTEXT_CHAR_CAP:]
+    return text
+
+
+def _invent_task(agent, history, user_text: str):
     """Ask the LLM to invent a task themed after *this character's own
     identity* — not a one-size-fits-all fantasy quest template. A math-teacher
     persona should hand out math commissions; an adventurer-guide persona
-    should hand out expeditions. Sees the recent conversation (via `messages`,
-    already trimmed to HISTORY_TURNS) so it can pick up on context the user
-    mentioned earlier, not just the triggering line.
+    should hand out expeditions. `history` (the last ~10 rounds, already
+    fetched by the caller) is flattened into an explicit transcript block so
+    the model can also pick up specific things the user mentioned earlier,
+    not just the triggering line.
     Falls back to the static TASK_LIBRARY on any failure or unparsable output."""
     generic_example = random.choice(_GENERIC_TASK_FEW_SHOTS)
     generic_text = f'用户说"{generic_example[0]}" → {generic_example[1]}|{generic_example[2]}'
+    recent_context = _format_recent_context(agent, history)
     prompt = (
+        f"以下是你们最近的对话记录，供你参考其中提到的具体内容：\n{recent_context}\n\n"
         f'用户刚才说："{user_text}"，透露出想主动接一份委托。\n'
-        "请结合你自己的人设身份来构思这份委托——委托的方向和风格要贴合你这个角色本身会给出的任务类型"
-        "（比如人设是数学老师，就该给数学相关的委托；人设是冒险向导，就该给探险类委托），"
-        "而不是所有角色都套用同一套讨伐/护送模板。也可以参考上面的对话内容寻找灵感。\n"
+        "请结合你自己的人设身份、以及上面对话里提到的具体内容，来构思这份委托——委托的方向和风格要贴合"
+        "你这个角色本身会给出的任务类型（比如人设是数学老师，就该给数学相关的委托；人设是冒险向导，"
+        "就该给探险类委托），而不是所有角色都套用同一套讨伐/护送模板。如果对话里提到过具体的人名、"
+        "话题或事项，优先围绕它构思，会更有代入感。\n"
         "参考下面例子体会「委托要贴合人设」的感觉（不要照抄例子本身，你要用你自己的人设）：\n"
         f"{_PERSONA_CONTRAST_SHOTS}\n{generic_text}\n\n"
-        "现在请你结合你的人设，为用户刚才那句话构思一个新的委托。只能使用简体中文，不要出现任何英文单词、"
-        "数字时长或与例子无关的内容。严格按下面的格式只输出一行，用英文竖线 | 分隔，"
+        "现在请你结合你的人设和上面的对话内容，为用户刚才那句话构思一个新的委托。只能使用简体中文，"
+        "不要出现任何英文单词、数字时长或与例子无关的内容。严格按下面的格式只输出一行，用英文竖线 | 分隔，"
         "不要输出任何其他文字、标签或解释：\n"
         "<委托名称，4到8个字>|<委托简介，不超过16个字>"
     )
     try:
-        raw = _chat(agent, messages + [{"role": "user", "content": prompt}], num_predict=60, temperature=0.6)
+        raw = _chat(agent, [{"role": "user", "content": prompt}], num_predict=60, temperature=0.6)
         name, desc = _parse_pipe_task(raw)
         if name and desc:
             return name, desc
@@ -196,7 +227,7 @@ def generate_reply(agent, history, user_text: str, force: bool = False):
             line = _clean(line) if line else dialogue.generate_task_offer_line(agent["speaking_style"])
         except Exception:
             line = dialogue.generate_task_offer_line(agent["speaking_style"])
-        name, desc = _invent_task(agent, messages, user_text)
+        name, desc = _invent_task(agent, history, user_text)
         return line, (name, desc)
 
     try:
