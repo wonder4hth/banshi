@@ -37,6 +37,7 @@
   <div class="story-item">
     <div class="date">{{ s['entry_date'] }}</div>
     <div class="content">{{ s['content'] }}</div>
+    {% if s['task_note'] %}<div class="note">📝 {{ s['task_note'] }}</div>{% endif %}
   </div>
   {% endfor %}
   {% else %}

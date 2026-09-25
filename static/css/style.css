@@ -288,6 +288,9 @@ label { font-size: 0.8rem; color: var(--ink-soft); display: block; margin-bottom
 .focus-task-name { color: var(--ink-soft); font-size: 0.9rem; }
 .focus-clock { font-size: 4rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
 .focus-hint { color: var(--ink-soft); font-size: 0.82rem; }
+.focus-note { width: 100%; max-width: 420px; text-align: left; }
+.focus-note textarea { min-height: 96px; }
+.focus-note-status { font-size: 0.72rem; color: var(--ink-soft); text-align: right; margin-top: 4px; min-height: 1em; }
 
 /* ---- records ---- */
 .stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -303,4 +306,5 @@ label { font-size: 0.8rem; color: var(--ink-soft); display: block; margin-bottom
 .story-item { border-left: 3px solid var(--accent-soft); padding: 4px 0 4px 14px; }
 .story-item .date { font-size: 0.72rem; color: var(--ink-soft); }
 .story-item .content { font-size: 0.9rem; margin-top: 2px; }
+.story-item .note { font-size: 0.82rem; color: var(--ink-soft); margin-top: 4px; white-space: pre-wrap; }
 .empty-state { text-align: center; color: var(--ink-soft); padding: 40px 20px; font-size: 0.88rem; }

@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     duration_min INTEGER NOT NULL,
     status       TEXT NOT NULL DEFAULT 'in_progress',
     outcome      TEXT,
+    note         TEXT NOT NULL DEFAULT '',
     started_at   TEXT NOT NULL,
     ended_at     TEXT,
     created_at   TEXT NOT NULL
@@ -82,6 +83,10 @@ def init_db() -> None:
     # Forward-compatible migration for dbs created before the `engine` column existed.
     try:
         conn.execute("ALTER TABLE agents ADD COLUMN engine TEXT NOT NULL DEFAULT 'llm'")
+    except sqlite3.OperationalError:
+        pass  # column already exists
+    try:
+        conn.execute("ALTER TABLE tasks ADD COLUMN note TEXT NOT NULL DEFAULT ''")
     except sqlite3.OperationalError:
         pass  # column already exists
     conn.commit()

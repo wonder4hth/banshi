@@ -5,6 +5,11 @@
   <div class="focus-task-name">当前委托：{{ task['task_name'] }}</div>
   <div class="focus-clock" id="clock">--:--</div>
   <div class="focus-hint">伙伴正在等候，专注期间无法对话</div>
+  <div class="focus-note">
+    <label for="note">备注</label>
+    <textarea id="note" maxlength="2000" placeholder="记下想法、进度或待办…">{{ task['note'] }}</textarea>
+    <div class="focus-note-status" id="note-status"></div>
+  </div>
   <button class="btn danger" id="abandon-btn">中途放弃委托</button>
 </div>
 
@@ -30,6 +35,31 @@ const deliverModal = document.getElementById('deliver-modal');
 let remaining = DURATION_SEC;
 let timerHandle = null;
 let defaultOutcome = 'complete';
+
+// ---- 备注自动保存（停止输入 800ms 后保存，刷新页面不丢失）
+const noteEl = document.getElementById('note');
+const noteStatusEl = document.getElementById('note-status');
+let noteSaveHandle = null;
+
+async function saveNote() {
+  clearTimeout(noteSaveHandle);
+  try {
+    const res = await fetch(`/tasks/${TASK_ID}/note`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: noteEl.value }),
+    });
+    noteStatusEl.textContent = res.ok ? '已保存' : '保存失败';
+  } catch (e) {
+    noteStatusEl.textContent = '保存失败';
+  }
+}
+
+noteEl.addEventListener('input', () => {
+  noteStatusEl.textContent = '…';
+  clearTimeout(noteSaveHandle);
+  noteSaveHandle = setTimeout(saveNote, 800);
+});
 
 function render() {
   const m = Math.floor(remaining / 60).toString().padStart(2, '0');
@@ -71,7 +101,7 @@ document.getElementById('deliver-submit').addEventListener('click', async () => 
     const res = await fetch(`/tasks/${TASK_ID}/deliver`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ outcome }),
+      body: JSON.stringify({ outcome, note: noteEl.value }),
     });
     const data = await res.json();
     window.location.href = data.chat_url || CHAT_URL;

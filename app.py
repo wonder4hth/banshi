@@ -371,6 +371,25 @@ def focus(agent_id, task_id):
     return render_template("focus.html", agent=agent, task=task)
 
 
+NOTE_MAX_LEN = 2000
+
+
+@app.route("/tasks/<int:task_id>/note", methods=["POST"])
+@login_required
+def task_note(task_id):
+    """Autosave for the notes box on the focus page."""
+    user = current_user()
+    note = str((request.get_json(silent=True) or {}).get("note", ""))[:NOTE_MAX_LEN]
+    conn = get_db()
+    cur = conn.execute(
+        "UPDATE tasks SET note = ? WHERE id = ? AND user_id = ?", (note, task_id, user["id"])
+    )
+    conn.commit()
+    if cur.rowcount == 0:
+        return jsonify({"error": "not_found"}), 404
+    return jsonify({"ok": True})
+
+
 @app.route("/tasks/<int:task_id>/deliver", methods=["POST"])
 @login_required
 def task_deliver(task_id):
@@ -382,15 +401,17 @@ def task_deliver(task_id):
     if task is None:
         return jsonify({"error": "not_found"}), 404
 
-    outcome = (request.get_json(silent=True) or {}).get("outcome", "")
+    payload = request.get_json(silent=True) or {}
+    outcome = payload.get("outcome", "")
     if outcome not in ("complete", "distracted", "gave_up"):
         return jsonify({"error": "bad_outcome"}), 400
+    note = str(payload.get("note", task["note"]))[:NOTE_MAX_LEN]
 
     agent = get_owned_agent(task["agent_id"], user["id"])
 
     conn.execute(
-        "UPDATE tasks SET status = ?, outcome = ?, ended_at = ? WHERE id = ?",
-        (outcome, outcome, db.now_iso(), task_id),
+        "UPDATE tasks SET status = ?, outcome = ?, note = ?, ended_at = ? WHERE id = ?",
+        (outcome, outcome, note, db.now_iso(), task_id),
     )
 
     if agent["engine"] == "llm":
@@ -445,8 +466,9 @@ def records():
     })
 
     stories = conn.execute(
-        """SELECT s.*, a.name AS agent_name FROM story_logs s
+        """SELECT s.*, a.name AS agent_name, t.note AS task_note FROM story_logs s
            JOIN agents a ON a.id = s.agent_id
+           LEFT JOIN tasks t ON t.id = s.task_id
            WHERE s.user_id = ? ORDER BY s.id DESC""",
         (user["id"],),
     ).fetchall()
