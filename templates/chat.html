@@ -45,9 +45,13 @@
 <div class="modal-overlay" id="task-modal" hidden>
   <div class="modal-sheet">
     <h3>📌 发现任务</h3>
-    <div>
-      <div style="font-weight:700;" id="task-name"></div>
-      <div class="hint" id="task-desc" style="margin-top:4px;"></div>
+    <div class="field" style="margin-bottom:10px;">
+      <label>委托名称（可自行修改）</label>
+      <input type="text" id="task-name-input" maxlength="20">
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label>委托简介</label>
+      <input type="text" id="task-desc-input" maxlength="40">
     </div>
     <div>
       <label style="margin-bottom:8px;">⏱ 选择专注时长</label>
@@ -74,7 +78,6 @@ const chatLog = document.getElementById('chat-log');
 const chatInput = document.getElementById('chat-input');
 const chatSend = document.getElementById('chat-send');
 const taskModal = document.getElementById('task-modal');
-let pendingTask = null;
 
 function scrollToBottom() { chatLog.scrollTop = chatLog.scrollHeight; }
 scrollToBottom();
@@ -116,9 +119,8 @@ document.querySelectorAll('input[name="duration"]').forEach(r => {
 });
 
 function openTaskModal(task) {
-  pendingTask = task;
-  document.getElementById('task-name').textContent = task.name;
-  document.getElementById('task-desc').textContent = task.desc;
+  document.getElementById('task-name-input').value = task.name;
+  document.getElementById('task-desc-input').value = task.desc;
   taskModal.hidden = false;
 }
 
@@ -128,6 +130,12 @@ document.getElementById('task-decline').addEventListener('click', () => {
 });
 
 document.getElementById('task-accept').addEventListener('click', async () => {
+  const nameInput = document.getElementById('task-name-input');
+  const descInput = document.getElementById('task-desc-input');
+  const name = nameInput.value.trim();
+  if (!name) { nameInput.focus(); return; }
+  const desc = descInput.value.trim();
+
   const checked = document.querySelector('input[name="duration"]:checked');
   let minutes = checked.value;
   if (minutes === 'custom') {
@@ -139,7 +147,7 @@ document.getElementById('task-accept').addEventListener('click', async () => {
   const res = await fetch(`/agents/${AGENT_ID}/tasks/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ task_name: pendingTask.name, task_desc: pendingTask.desc, duration_min: minutes }),
+    body: JSON.stringify({ task_name: name, task_desc: desc, duration_min: minutes }),
   });
   const data = await res.json();
   window.location.href = data.focus_url;
