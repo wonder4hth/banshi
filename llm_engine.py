@@ -169,11 +169,16 @@ def _invent_task(agent, user_text: str):
     return dialogue.pick_task()
 
 
-def generate_reply(agent, history, user_text: str):
-    """Returns (reply_text, task_offer) where task_offer is (name, desc) or None."""
+def generate_reply(agent, history, user_text: str, force: bool = False):
+    """Returns (reply_text, task_offer) where task_offer is (name, desc) or None.
+
+    `force=True` skips the keyword gate entirely — used when the user
+    manually summons a task via the chat page's bottom toolbar, to cover
+    cases the automatic keyword/LLM detection missed.
+    """
     messages = _history_to_messages(history) + [{"role": "user", "content": user_text}]
 
-    if dialogue.detects_focus_intent(user_text):
+    if force or dialogue.detects_focus_intent(user_text):
         # two independent calls: each has its own fallback, so a hiccup in one
         # doesn't force the whole turn back to the fully-canned template reply
         try:

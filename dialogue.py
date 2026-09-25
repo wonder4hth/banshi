@@ -210,9 +210,14 @@ def generate_outcome_line(style: str, attitude: str, outcome: str) -> str:
     return random.choice(OUTCOME_LINES[style][attitude][outcome])
 
 
-def generate_reply(style: str, user_text: str):
-    """Return (reply_text, task_offer) — task_offer is (name, desc) or None."""
-    if detects_focus_intent(user_text):
+def generate_reply(style: str, user_text: str, force: bool = False):
+    """Return (reply_text, task_offer) — task_offer is (name, desc) or None.
+
+    `force=True` skips the keyword gate entirely — used when the user
+    manually summons a task via the chat page's bottom toolbar, to cover
+    cases the automatic keyword/LLM detection missed.
+    """
+    if force or detects_focus_intent(user_text):
         name, desc = pick_task()
         return generate_task_offer_line(style), (name, desc)
     return generate_idle_reply(style), None

@@ -289,21 +289,28 @@ def chat_send(agent_id):
     if agent is None:
         return jsonify({"error": "not_found"}), 404
 
-    text = (request.get_json(silent=True) or {}).get("text", "").strip()
-    if not text:
+    payload = request.get_json(silent=True) or {}
+    text = (payload.get("text") or "").strip()
+    force_task = bool(payload.get("force_task"))
+    if not text and not force_task:
         return jsonify({"error": "empty"}), 400
 
     conn = get_db()
-    conn.execute(
-        "INSERT INTO messages (user_id, agent_id, sender, content, created_at) VALUES (?,?,?,?,?)",
-        (user["id"], agent_id, "user", text, db.now_iso()),
-    )
+    if text:
+        conn.execute(
+            "INSERT INTO messages (user_id, agent_id, sender, content, created_at) VALUES (?,?,?,?,?)",
+            (user["id"], agent_id, "user", text, db.now_iso()),
+        )
+
+    # when the toolbar's "唤起委托" is tapped with nothing typed, feed the
+    # generator a neutral placeholder instead of an empty string
+    effective_text = text or "（主动想要接一份委托，没有说明具体想做什么）"
 
     if agent["engine"] == "llm":
         history = get_recent_history(conn, agent_id, user["id"])
-        reply_text, task_offer = llm_engine.generate_reply(agent, history, text)
+        reply_text, task_offer = llm_engine.generate_reply(agent, history, effective_text, force=force_task)
     else:
-        reply_text, task_offer = dialogue.generate_reply(agent["speaking_style"], text)
+        reply_text, task_offer = dialogue.generate_reply(agent["speaking_style"], effective_text, force=force_task)
     conn.execute(
         "INSERT INTO messages (user_id, agent_id, sender, content, created_at) VALUES (?,?,?,?,?)",
         (user["id"], agent_id, "agent", reply_text, db.now_iso()),

@@ -226,6 +226,17 @@ label { font-size: 0.8rem; color: var(--ink-soft); display: block; margin-bottom
 .bubble-row.agent .bubble { background: var(--bg-alt); border-bottom-left-radius: 4px; }
 .bubble-row.user .bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
 
+.chat-toolbar {
+  display: flex; gap: 8px; padding: 4px 0 0;
+}
+.toolbar-btn {
+  border: 1px solid var(--line); background: var(--bg-alt); color: var(--ink-soft);
+  border-radius: 999px; padding: 7px 14px; font-size: 0.78rem; font-weight: 600;
+  cursor: pointer;
+}
+.toolbar-btn:active { transform: scale(0.97); }
+.toolbar-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .chat-input-bar {
   position: sticky; bottom: 0; background: var(--bg);
   padding: 10px 0 4px; display: flex; gap: 8px; align-items: center;

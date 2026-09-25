@@ -32,6 +32,9 @@
   </div>
 </div>
 {% else %}
+<div class="chat-toolbar">
+  <button class="toolbar-btn" id="summon-task-btn" type="button">📌 主动唤起委托</button>
+</div>
 <div class="chat-input-bar">
   <input type="text" id="chat-input" placeholder="想说点什么…" autocomplete="off">
   <button class="btn" id="chat-send">发送</button>
@@ -142,34 +145,45 @@ document.getElementById('task-accept').addEventListener('click', async () => {
   window.location.href = data.focus_url;
 });
 
-if (chatSend) {
-  async function sendMessage() {
-    const text = chatInput.value.trim();
-    if (!text) return;
-    appendBubble('user', text);
-    chatInput.value = '';
-    chatSend.disabled = true;
-    showTyping();
-    try {
-      const res = await fetch(`/agents/${AGENT_ID}/chat/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      });
-      const data = await res.json();
-      hideTyping();
-      appendBubble('agent', data.reply);
-      if (data.task_offer) {
-        setTimeout(() => openTaskModal(data.task_offer), 400);
-      }
-    } finally {
-      hideTyping();
-      chatSend.disabled = false;
-      chatInput.focus();
+const summonBtn = document.getElementById('summon-task-btn');
+
+async function sendToAgent(text, forceTask) {
+  if (!text && !forceTask) return;
+  if (text) appendBubble('user', text);
+  chatInput.value = '';
+  if (chatSend) chatSend.disabled = true;
+  if (summonBtn) summonBtn.disabled = true;
+  showTyping();
+  try {
+    const res = await fetch(`/agents/${AGENT_ID}/chat/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, force_task: !!forceTask }),
+    });
+    const data = await res.json();
+    hideTyping();
+    appendBubble('agent', data.reply);
+    if (data.task_offer) {
+      setTimeout(() => openTaskModal(data.task_offer), 400);
     }
+  } finally {
+    hideTyping();
+    if (chatSend) chatSend.disabled = false;
+    if (summonBtn) summonBtn.disabled = false;
+    chatInput.focus();
   }
+}
+
+if (chatSend) {
+  const sendMessage = () => sendToAgent(chatInput.value.trim(), false);
   chatSend.addEventListener('click', sendMessage);
   chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+}
+
+if (summonBtn) {
+  // 底部选项栏：不管关键词有没有命中，直接主动唤起一份委托，
+  // 用来覆盖大模型/关键词没识别出来的场景。若输入框里有字，一并带上做上下文。
+  summonBtn.addEventListener('click', () => sendToAgent(chatInput.value.trim(), true));
 }
 </script>
 {% endblock %}
