@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}登录 · 伴时{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-title">
+    <h1>伴 时</h1>
+    <p>所有角色与专注记录将绑定账号，跨设备登录网页即可读取。</p>
+  </div>
+
+  <div class="tabs">
+    <button type="button" id="tab-login" class="active" onclick="switchTab('login')">登录</button>
+    <button type="button" id="tab-register" onclick="switchTab('register')">注册</button>
+  </div>
+
+  <form class="auth-form active card" id="form-login" method="post" action="{{ url_for('login') }}">
+    <div class="field">
+      <label>邮箱 / 用户名</label>
+      <input type="text" name="identifier" value="{{ identifier or '' }}" required autofocus>
+    </div>
+    <div class="field">
+      <label>密码</label>
+      <input type="password" name="password" required>
+    </div>
+    {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+    <button class="btn block" type="submit">登录</button>
+  </form>
+
+  <form class="auth-form card" id="form-register" method="post" action="{{ url_for('register') }}">
+    <div class="field">
+      <label>邮箱</label>
+      <input type="email" name="email" required>
+    </div>
+    <div class="field">
+      <label>用户名</label>
+      <input type="text" name="username" required>
+    </div>
+    <div class="field">
+      <label>密码</label>
+      <input type="password" name="password" required>
+    </div>
+    {% if reg_error %}<div class="error-msg">{{ reg_error }}</div>{% endif %}
+    <button class="btn block" type="submit">注册新账号</button>
+  </form>
+</div>
+
+<script>
+  function switchTab(which) {
+    document.getElementById('tab-login').classList.toggle('active', which === 'login');
+    document.getElementById('tab-register').classList.toggle('active', which === 'register');
+    document.getElementById('form-login').classList.toggle('active', which === 'login');
+    document.getElementById('form-register').classList.toggle('active', which === 'register');
+  }
+  {% if show_register %}switchTab('register');{% endif %}
+</script>
+{% endblock %}

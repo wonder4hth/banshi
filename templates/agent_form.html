@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑智能体' if agent else '新建智能体' }} · 伴时{% endblock %}
+{% block content %}
+<form method="post" class="card" style="display:flex; flex-direction:column; gap:4px;">
+  <div class="field">
+    <label>角色名称</label>
+    <input type="text" name="name" value="{{ agent['name'] if agent else '' }}" placeholder="给你的伙伴取个名字" required>
+  </div>
+
+  <div class="field">
+    <label>头像</label>
+    <div class="avatar-picker">
+      {% for av in avatars %}
+      {% set current = agent['avatar'] if agent else avatars[0].id %}
+      <input type="radio" name="avatar" id="av-{{ av.id }}" value="{{ av.id }}" {{ 'checked' if current == av.id else '' }}>
+      <label for="av-{{ av.id }}" style="background: {{ av.color }}22; color: {{ av.color }};">{{ av.emoji }}</label>
+      {% endfor %}
+    </div>
+    <div class="hint" style="margin-top:6px;">MVP 内置默认头像图库，暂不支持自定义图片上传</div>
+  </div>
+
+  <div class="field">
+    <label>背景人设（简短描述）</label>
+    <textarea name="persona" placeholder="例如：曾在书斋中静静抄录古籍的沉默书生">{{ agent['persona'] if agent else '' }}</textarea>
+  </div>
+
+  <div class="field">
+    <label>对话引擎</label>
+    <div class="style-grid">
+      {% for key, label in engines.items() %}
+      {% set current = agent['engine'] if agent else 'llm' %}
+      <input type="radio" name="engine" id="engine-{{ key }}" value="{{ key }}" {{ 'checked' if current == key else '' }}>
+      <label for="engine-{{ key }}">{{ label }}</label>
+      {% endfor %}
+    </div>
+    <div class="hint" style="margin-top:6px;">本地大模型：基于人设描述实时生成对话，更有代入感，需要本机运行 Ollama（无需 API key，若未连接会自动退回简单模板）。简单模板：固定短句库，速度最快，完全离线。</div>
+  </div>
+
+  <div class="field">
+    <label>说话风格</label>
+    <div class="style-grid">
+      {% for key, label in styles.items() %}
+      {% set current = agent['speaking_style'] if agent else 'calm' %}
+      <input type="radio" name="speaking_style" id="style-{{ key }}" value="{{ key }}" {{ 'checked' if current == key else '' }}>
+      <label for="style-{{ key }}">{{ label }}</label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="field">
+    <label>对待分心态度</label>
+    <div class="style-grid">
+      {% for key, label in attitudes.items() %}
+      {% set current = agent['distraction_attitude'] if agent else 'tolerant' %}
+      <input type="radio" name="distraction_attitude" id="att-{{ key }}" value="{{ key }}" {{ 'checked' if current == key else '' }}>
+      <label for="att-{{ key }}">{{ label }}</label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="modal-actions" style="margin-top: 10px;">
+    <a class="btn ghost" href="{{ url_for('agents_list') }}">取消</a>
+    <button class="btn" type="submit">保存</button>
+  </div>
+</form>
+{% endblock %}

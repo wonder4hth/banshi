@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>{% block title %}伴时{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    {% if current_user %}
+    <header class="navbar">
+      <div class="brand">伴时</div>
+      <nav>
+        <a href="{{ url_for('agents_list') }}" class="{{ 'active' if request.endpoint == 'agents_list' else '' }}">角色</a>
+        <a href="{{ url_for('records') }}" class="{{ 'active' if request.endpoint == 'records' else '' }}">记录中心</a>
+        <a href="{{ url_for('logout') }}">退出</a>
+      </nav>
+    </header>
+    {% endif %}
+    <main class="page">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

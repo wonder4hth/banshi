@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}记录中心 · 伴时{% endblock %}
+{% block content %}
+<div class="tabs">
+  <button type="button" id="tab-board" class="active" onclick="switchTab('board')">数据看板</button>
+  <button type="button" id="tab-story" onclick="switchTab('story')">故事日志</button>
+</div>
+
+<div id="panel-board" style="display:flex; flex-direction:column; gap:16px;">
+  <div class="stat-row">
+    <div class="stat-card">
+      <div class="value">{{ total_minutes }}</div>
+      <div class="label">本月总专注时长（分钟）</div>
+    </div>
+    <div class="stat-card">
+      <div class="value">{{ completion_rate }}%</div>
+      <div class="label">委托完成率</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="hint" style="margin-bottom:10px;">{{ today.year }}年{{ today.month }}月 · 打卡视图（共 {{ checkin_days|length }} 天）</div>
+    {% if checkin_days %}
+    <div class="calendar-days">
+      {% for d in checkin_days %}
+      <div class="day">{{ d[8:10] }}</div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="hint">这个月还没有打卡记录，去接一份委托吧。</div>
+    {% endif %}
+  </div>
+</div>
+
+<div id="panel-story" style="display:none; flex-direction:column; gap:12px;">
+  {% if stories %}
+  {% for s in stories %}
+  <div class="story-item">
+    <div class="date">{{ s['entry_date'] }}</div>
+    <div class="content">{{ s['content'] }}</div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div class="empty-state">还没有故事，快去和伙伴接一份委托吧 ✨</div>
+  {% endif %}
+</div>
+
+<script>
+function switchTab(which) {
+  document.getElementById('tab-board').classList.toggle('active', which === 'board');
+  document.getElementById('tab-story').classList.toggle('active', which === 'story');
+  document.getElementById('panel-board').style.display = which === 'board' ? 'flex' : 'none';
+  document.getElementById('panel-story').style.display = which === 'story' ? 'flex' : 'none';
+}
+</script>
+{% endblock %}

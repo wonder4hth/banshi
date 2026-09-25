@@ -1,0 +1,12 @@
+# runtime data — personal to each machine, never commit
+banshi.db
+.secret_key
+
+# python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# editor/OS cruft
+.DS_Store

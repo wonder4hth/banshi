@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}角色选择台 · 伴时{% endblock %}
+{% block content %}
+<a class="new-agent-btn" href="{{ url_for('agent_new') }}">➕ 新建智能体</a>
+
+{% if agents %}
+<div class="agent-grid">
+  {% for agent in agents %}
+  {% set av = avatars | selectattr('id', 'equalto', agent['avatar']) | list %}
+  {% set av = av[0] if av else avatars[0] %}
+  <div class="agent-card">
+    <div class="top">
+      <div class="avatar" style="background: {{ av.color }}22; color: {{ av.color }};">{{ av.emoji }}</div>
+      <div>
+        <div class="name">{{ agent['name'] }}</div>
+        <div class="tag-row">
+          <span class="tag">{{ styles[agent['speaking_style']] }}</span>
+          <span class="tag">{{ attitudes[agent['distraction_attitude']] }}</span>
+          <span class="tag">{{ '🧠 ' + engines[agent['engine']] if agent['engine'] == 'llm' else '📋 ' + engines[agent['engine']] }}</span>
+        </div>
+      </div>
+    </div>
+    {% if agent['persona'] %}<div class="hint">{{ agent['persona'] }}</div>{% endif %}
+    <div class="actions">
+      <a class="btn block" href="{{ url_for('chat', agent_id=agent['id']) }}">进入陪伴</a>
+      <a class="btn secondary" href="{{ url_for('agent_edit', agent_id=agent['id']) }}">编辑</a>
+      <form method="post" action="{{ url_for('agent_delete', agent_id=agent['id']) }}"
+            onsubmit="return confirm('确定要删除「{{ agent['name'] }}」吗？相关记录也会一并删除。');">
+        <button class="btn danger" type="submit">删除</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">还没有陪伴角色，点击上方新建一个专属伙伴吧 ✨</div>
+{% endif %}
+{% endblock %}

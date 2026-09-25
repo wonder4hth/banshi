@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}专注中 · 伴时{% endblock %}
+{% block content %}
+<div class="focus-wrap">
+  <div class="focus-task-name">当前委托：{{ task['task_name'] }}</div>
+  <div class="focus-clock" id="clock">--:--</div>
+  <div class="focus-hint">伙伴正在等候，专注期间无法对话</div>
+  <button class="btn danger" id="abandon-btn">中途放弃委托</button>
+</div>
+
+<!-- 任务交付 modal -->
+<div class="modal-overlay" id="deliver-modal" hidden>
+  <div class="modal-sheet">
+    <h3>请选择本次委托完成情况</h3>
+    <div class="outcome-options">
+      <label><input type="radio" name="outcome" value="complete" checked><span>🔘 圆满完成</span></label>
+      <label><input type="radio" name="outcome" value="distracted"><span>🔘 偶尔走神</span></label>
+      <label><input type="radio" name="outcome" value="gave_up"><span>🔘 中途没能坚持</span></label>
+    </div>
+    <button class="btn block" id="deliver-submit">确认提交</button>
+  </div>
+</div>
+
+<script>
+const TASK_ID = {{ task['id'] }};
+const DURATION_SEC = {{ task['duration_min'] }} * 60;
+const CHAT_URL = "{{ url_for('chat', agent_id=agent['id']) }}";
+const clockEl = document.getElementById('clock');
+const deliverModal = document.getElementById('deliver-modal');
+let remaining = DURATION_SEC;
+let timerHandle = null;
+let defaultOutcome = 'complete';
+
+function render() {
+  const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+  const s = Math.floor(remaining % 60).toString().padStart(2, '0');
+  clockEl.textContent = `${m}:${s}`;
+}
+render();
+
+timerHandle = setInterval(() => {
+  remaining -= 1;
+  if (remaining <= 0) {
+    remaining = 0;
+    render();
+    clearInterval(timerHandle);
+    defaultOutcome = 'complete';
+    openDeliverModal();
+    return;
+  }
+  render();
+}, 1000);
+
+function openDeliverModal() {
+  document.querySelector(`input[name="outcome"][value="${defaultOutcome}"]`).checked = true;
+  deliverModal.hidden = false;
+}
+
+document.getElementById('abandon-btn').addEventListener('click', () => {
+  clearInterval(timerHandle);
+  defaultOutcome = 'gave_up';
+  openDeliverModal();
+});
+
+document.getElementById('deliver-submit').addEventListener('click', async () => {
+  const outcome = document.querySelector('input[name="outcome"]:checked').value;
+  const btn = document.getElementById('deliver-submit');
+  btn.disabled = true;
+  btn.textContent = '提交中…';
+  try {
+    const res = await fetch(`/tasks/${TASK_ID}/deliver`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outcome }),
+    });
+    const data = await res.json();
+    window.location.href = data.chat_url || CHAT_URL;
+  } catch (e) {
+    btn.disabled = false;
+  }
+});
+</script>
+{% endblock %}

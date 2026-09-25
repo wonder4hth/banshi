@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}{{ agent['name'] }} · 伴时{% endblock %}
+{% block content %}
+{% set av = avatar_map.get(agent['avatar']) %}
+<div class="chat-header">
+  <div class="avatar" style="background: {{ av.color }}22; color: {{ av.color }};">{{ av.emoji }}</div>
+  <div>
+    <div class="name">{{ agent['name'] }}</div>
+    <div class="persona">{{ styles[agent['speaking_style']] }} · {{ attitudes[agent['distraction_attitude']] }}</div>
+  </div>
+</div>
+
+{% if agent['engine'] == 'llm' and not llm_ready %}
+<div class="locked-note">
+  本地大模型未连接，暂时用简单模板回复。运行 <code>ollama serve</code> 后刷新本页即可恢复「{{ agent['name'] }}」的智能对话。
+</div>
+{% endif %}
+
+<div class="chat-log" id="chat-log">
+  {% for m in messages %}
+  <div class="bubble-row {{ m['sender'] }}">
+    <div class="bubble">{{ m['content'] }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if active_task %}
+<div class="locked-note">
+  伙伴正在等候「{{ active_task['task_name'] }}」的结果，专注期间无法对话。
+  <div style="margin-top:8px;">
+    <a class="btn secondary" href="{{ url_for('focus', agent_id=agent['id'], task_id=active_task['id']) }}">回到专注页</a>
+  </div>
+</div>
+{% else %}
+<div class="chat-input-bar">
+  <input type="text" id="chat-input" placeholder="想说点什么…" autocomplete="off">
+  <button class="btn" id="chat-send">发送</button>
+</div>
+{% endif %}
+
+<!-- 发现任务 modal -->
+<div class="modal-overlay" id="task-modal" hidden>
+  <div class="modal-sheet">
+    <h3>📌 发现任务</h3>
+    <div>
+      <div style="font-weight:700;" id="task-name"></div>
+      <div class="hint" id="task-desc" style="margin-top:4px;"></div>
+    </div>
+    <div>
+      <label style="margin-bottom:8px;">⏱ 选择专注时长</label>
+      <div class="duration-row">
+        <input type="radio" name="duration" id="dur-25" value="25" checked><label for="dur-25">25min</label>
+        <input type="radio" name="duration" id="dur-45" value="45"><label for="dur-45">45min</label>
+        <input type="radio" name="duration" id="dur-60" value="60"><label for="dur-60">60min</label>
+        <input type="radio" name="duration" id="dur-custom" value="custom"><label for="dur-custom">自定义</label>
+      </div>
+      <div class="field" id="custom-duration-wrap" style="margin-top:10px; display:none;">
+        <input type="number" id="custom-duration" min="1" max="180" placeholder="输入分钟数">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="task-decline">暂时不接</button>
+      <button class="btn" id="task-accept">接取委托</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const AGENT_ID = {{ agent['id'] }};
+const chatLog = document.getElementById('chat-log');
+const chatInput = document.getElementById('chat-input');
+const chatSend = document.getElementById('chat-send');
+const taskModal = document.getElementById('task-modal');
+let pendingTask = null;
+
+function scrollToBottom() { chatLog.scrollTop = chatLog.scrollHeight; }
+scrollToBottom();
+
+function appendBubble(sender, text) {
+  const row = document.createElement('div');
+  row.className = 'bubble-row ' + sender;
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  row.appendChild(bubble);
+  chatLog.appendChild(row);
+  scrollToBottom();
+  return row;
+}
+
+function showTyping() {
+  const row = document.createElement('div');
+  row.className = 'bubble-row agent';
+  row.id = 'typing-row';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = '……';
+  row.appendChild(bubble);
+  chatLog.appendChild(row);
+  scrollToBottom();
+}
+
+function hideTyping() {
+  const row = document.getElementById('typing-row');
+  if (row) row.remove();
+}
+
+document.querySelectorAll('input[name="duration"]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.getElementById('custom-duration-wrap').style.display =
+      r.value === 'custom' && r.checked ? 'block' : 'none';
+  });
+});
+
+function openTaskModal(task) {
+  pendingTask = task;
+  document.getElementById('task-name').textContent = task.name;
+  document.getElementById('task-desc').textContent = task.desc;
+  taskModal.hidden = false;
+}
+
+document.getElementById('task-decline').addEventListener('click', () => {
+  taskModal.hidden = true;
+  appendBubble('agent', '好，那就先陪你聊聊，想接的时候随时说。');
+});
+
+document.getElementById('task-accept').addEventListener('click', async () => {
+  const checked = document.querySelector('input[name="duration"]:checked');
+  let minutes = checked.value;
+  if (minutes === 'custom') {
+    minutes = parseInt(document.getElementById('custom-duration').value, 10);
+    if (!minutes || minutes < 1) { return; }
+  } else {
+    minutes = parseInt(minutes, 10);
+  }
+  const res = await fetch(`/agents/${AGENT_ID}/tasks/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ task_name: pendingTask.name, task_desc: pendingTask.desc, duration_min: minutes }),
+  });
+  const data = await res.json();
+  window.location.href = data.focus_url;
+});
+
+if (chatSend) {
+  async function sendMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    appendBubble('user', text);
+    chatInput.value = '';
+    chatSend.disabled = true;
+    showTyping();
+    try {
+      const res = await fetch(`/agents/${AGENT_ID}/chat/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      hideTyping();
+      appendBubble('agent', data.reply);
+      if (data.task_offer) {
+        setTimeout(() => openTaskModal(data.task_offer), 400);
+      }
+    } finally {
+      hideTyping();
+      chatSend.disabled = false;
+      chatInput.focus();
+    }
+  }
+  chatSend.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+}
+</script>
+{% endblock %}
