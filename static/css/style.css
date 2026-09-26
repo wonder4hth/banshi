@@ -117,6 +117,7 @@ textarea, select {
   font-family: inherit;
 }
 textarea { resize: vertical; min-height: 72px; }
+textarea.profile-input { min-height: 200px; }
 label { font-size: 0.8rem; color: var(--ink-soft); display: block; margin-bottom: 6px; }
 .field { margin-bottom: 14px; }
 .error-msg { color: var(--danger); font-size: 0.85rem; margin-top: -6px; }

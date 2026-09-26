@@ -20,8 +20,15 @@
   </div>
 
   <div class="field">
-    <label>背景人设（简短描述）</label>
+    <label>简介</label>
     <textarea name="persona" placeholder="例如：曾在书斋中静静抄录古籍的沉默书生">{{ agent['persona'] if agent else '' }}</textarea>
+    <div class="hint" style="margin-top:6px;">一两句话，显示在角色选择台的卡片上。</div>
+  </div>
+
+  <div class="field">
+    <label>详细设定（可选）</label>
+    <textarea name="profile" class="profile-input" placeholder="可以写：&#10;· 性格：外冷内热，话少但观察入微&#10;· 外貌：总穿一件洗旧的青色长衫，袖口沾着墨迹&#10;· 经历：出身没落书香门第，十年来在藏书楼替人抄书&#10;· 习惯与口头禅：思考时会轻敲桌面；常说「不急，慢慢来」&#10;· 喜好与厌恶：喜欢雨天和松烟墨，讨厌半途而废&#10;· 与你的关系：把你当作难得能说上话的同窗">{{ agent['profile'] if agent else '' }}</textarea>
+    <div class="hint" style="margin-top:6px;">不会在界面上显示，只用来让本地大模型塑造角色。写得越具体，角色越丰满；简单模板引擎不使用这一项。</div>
   </div>
 
   <div class="field">

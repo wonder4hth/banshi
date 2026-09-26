@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS agents (
     user_id              INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name                 TEXT NOT NULL,
     avatar               TEXT NOT NULL,
-    persona              TEXT NOT NULL DEFAULT '',
+    persona              TEXT NOT NULL DEFAULT '',  -- short blurb shown on the agent picker
+    profile              TEXT NOT NULL DEFAULT '',  -- full character sheet, only fed to the LLM
     speaking_style       TEXT NOT NULL,
     distraction_attitude TEXT NOT NULL,
     engine               TEXT NOT NULL DEFAULT 'llm',  -- 'llm' (local Ollama) | 'template'
@@ -87,6 +88,10 @@ def init_db() -> None:
         pass  # column already exists
     try:
         conn.execute("ALTER TABLE tasks ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # column already exists
+    try:
+        conn.execute("ALTER TABLE agents ADD COLUMN profile TEXT NOT NULL DEFAULT ''")
     except sqlite3.OperationalError:
         pass  # column already exists
     conn.commit()

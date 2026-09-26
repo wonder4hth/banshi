@@ -24,12 +24,15 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:14b")
 REQUEST_TIMEOUT = 60  # generous: a cold 14B model load can take well over 20 seconds
 HISTORY_TURNS = 20    # ~10 back-and-forth rounds (both sides) fed back in as context
+NUM_CTX = 8192        # Ollama's 4096 default is too tight once a full character profile is in the prompt
+PROFILE_CHAR_CAP = 3000  # keeps a very long profile from crowding out the chat history
 
 
 def _post(path: str, payload: dict, timeout: int = REQUEST_TIMEOUT) -> dict:
     # Qwen3 and other reasoning models would otherwise emit a <think> block first,
     # which burns the num_predict budget and leaks into the reply
     payload = {"think": False, **payload}
+    payload["options"] = {"num_ctx": NUM_CTX, **payload.get("options", {})}
     req = urllib.request.Request(
         OLLAMA_HOST + path,
         data=json.dumps(payload).encode("utf-8"),
@@ -49,13 +52,27 @@ def is_available(timeout: float = 1.5) -> bool:
         return False
 
 
-def _build_system_prompt(agent) -> str:
+def _persona_lines(agent) -> str:
+    """The blurb plus, when filled in, the full character profile — shared by
+    the chat and letter system prompts so both see the same character."""
     persona = agent["persona"].strip() or "一个温暖、愿意在你身边陪伴学习的虚拟伙伴"
+    lines = f"人设简介：{persona}\n"
+    profile = (agent["profile"] or "").strip()[:PROFILE_CHAR_CAP]
+    if profile:
+        lines += (
+            "详细设定（这是你的性格、经历、习惯与说话方式，请始终据此思考和回应，"
+            "自然地体现在言行里，但不要照搬原文或一次性全部说出来）：\n"
+            f"{profile}\n"
+        )
+    return lines
+
+
+def _build_system_prompt(agent) -> str:
     style = dialogue.STYLES.get(agent["speaking_style"], "")
     attitude = dialogue.ATTITUDES.get(agent["distraction_attitude"], "")
     return (
         f'你正在扮演虚拟陪伴角色"{agent["name"]}"，与你对话的用户把你当作学习/专注时的陪伴搭档。\n'
-        f"人设背景：{persona}\n"
+        f"{_persona_lines(agent)}"
         f"说话风格：{style}——每一句话都要体现这种语气。\n"
         f"对待用户分心、中途放弃委托的态度：{attitude}。\n\n"
         "严格规则：\n"

@@ -179,6 +179,7 @@ def agent_new():
     name = request.form.get("name", "").strip() or "无名旅伴"
     avatar = request.form.get("avatar", dialogue.AVATARS[0]["id"])
     persona = request.form.get("persona", "").strip()
+    profile = request.form.get("profile", "").strip()
     speaking_style = request.form.get("speaking_style", "calm")
     distraction_attitude = request.form.get("distraction_attitude", "tolerant")
     engine = request.form.get("engine", "llm")
@@ -188,9 +189,9 @@ def agent_new():
     conn = get_db()
     conn.execute(
         """INSERT INTO agents
-           (user_id, name, avatar, persona, speaking_style, distraction_attitude, engine, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (user["id"], name, avatar, persona, speaking_style, distraction_attitude, engine, db.now_iso()),
+           (user_id, name, avatar, persona, profile, speaking_style, distraction_attitude, engine, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (user["id"], name, avatar, persona, profile, speaking_style, distraction_attitude, engine, db.now_iso()),
     )
     conn.commit()
     return redirect(url_for("agents_list"))
@@ -210,6 +211,7 @@ def agent_edit(agent_id):
     name = request.form.get("name", "").strip() or agent["name"]
     avatar = request.form.get("avatar", agent["avatar"])
     persona = request.form.get("persona", "").strip()
+    profile = request.form.get("profile", "").strip()
     speaking_style = request.form.get("speaking_style", agent["speaking_style"])
     distraction_attitude = request.form.get("distraction_attitude", agent["distraction_attitude"])
     engine = request.form.get("engine", agent["engine"])
@@ -218,9 +220,9 @@ def agent_edit(agent_id):
 
     conn = get_db()
     conn.execute(
-        """UPDATE agents SET name=?, avatar=?, persona=?, speaking_style=?, distraction_attitude=?, engine=?
+        """UPDATE agents SET name=?, avatar=?, persona=?, profile=?, speaking_style=?, distraction_attitude=?, engine=?
            WHERE id=? AND user_id=?""",
-        (name, avatar, persona, speaking_style, distraction_attitude, engine, agent_id, user["id"]),
+        (name, avatar, persona, profile, speaking_style, distraction_attitude, engine, agent_id, user["id"]),
     )
     conn.commit()
     return redirect(url_for("agents_list"))
