@@ -9,7 +9,7 @@ is unreachable, slow, or returns something unparsable — so the app keeps
 working even if `ollama serve` isn't running, just with flatter dialogue.
 
 Requires: `ollama serve` running locally, and the model pulled once via
-`ollama pull llama3.2:3b` (or set OLLAMA_MODEL to whatever you have).
+`ollama pull qwen3:14b` (or set OLLAMA_MODEL to whatever you have).
 """
 import json
 import os
@@ -21,12 +21,15 @@ import urllib.request
 import dialogue
 
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2:3b")
-REQUEST_TIMEOUT = 20  # generous: a cold model load can take several seconds
+MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:14b")
+REQUEST_TIMEOUT = 60  # generous: a cold 14B model load can take well over 20 seconds
 HISTORY_TURNS = 20    # ~10 back-and-forth rounds (both sides) fed back in as context
 
 
 def _post(path: str, payload: dict, timeout: int = REQUEST_TIMEOUT) -> dict:
+    # Qwen3 and other reasoning models would otherwise emit a <think> block first,
+    # which burns the num_predict budget and leaks into the reply
+    payload = {"think": False, **payload}
     req = urllib.request.Request(
         OLLAMA_HOST + path,
         data=json.dumps(payload).encode("utf-8"),

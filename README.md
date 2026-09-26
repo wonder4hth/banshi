@@ -5,7 +5,7 @@
 对话有两套引擎，创建角色时可选（也可以在编辑页随时切换）：
 - **本地大模型**（默认，`llm_engine.py`）：调用本机 Ollama（`http://127.0.0.1:11434`），
   真正根据你写的人设描述 + 对话上下文现场生成台词、现场构思委托，更有"活人感"。
-  当前使用 `llama3.2:3b`（已在你机器上装好）。若 Ollama 没启动，会自动、无感地退回模板引擎，
+  当前默认使用 `qwen3:14b`（首次需 `ollama pull qwen3:14b`，约 9GB）。若 Ollama 没启动，会自动、无感地退回模板引擎，
   不会报错或卡住。
 - **简单模板**（`dialogue.py`）：固定短句库按"说话风格 × 分心态度"组合，零延迟、完全离线。
 
@@ -15,7 +15,7 @@
 
 ```bash
 ollama serve &          # 若已作为系统服务常驻则不需要
-ollama list              # 确认 llama3.2:3b 已存在
+ollama list              # 确认 qwen3:14b 已存在
 ```
 
 首次运行：
@@ -56,17 +56,14 @@ uv pip install --python .venv/bin/python -r requirements.txt
 ## 关于本地大模型引擎
 
 - 完全离线：所有请求只发往 `127.0.0.1:11434`（Ollama 默认地址），不连外网、不用 key。
-- 模型质量提示：`llama3.2:3b` 是个较小的模型，中文短句整体可用，但偶尔会有用词生硬、
-  极少数情况夹杂英文单词的情况——这是小模型的局限，不是 bug。如果想要更地道的中文
-  角色扮演效果，可以换一个中文能力更强的本地模型，例如：
+- 模型选择：默认 `qwen3:14b`，中文角色扮演效果好，Q4 量化约占 9-10GB 显存，16GB 显存可完整装下。
+  请求里已带上 `"think": false`，关闭 Qwen3 的思考模式，否则会先输出一段 `<think>` 内容。
+  显存不够或想要更快，可以换小一点的模型，用环境变量指定即可：
   ```bash
-  ollama pull qwen2.5:7b-instruct
+  ollama pull qwen3:8b
+  OLLAMA_MODEL=qwen3:8b .venv/bin/python app.py
   ```
-  然后设置环境变量再启动：
-  ```bash
-  OLLAMA_MODEL=qwen2.5:7b-instruct .venv/bin/python app.py
-  ```
-  （7B 模型约 4-5GB 下载，你的 16GB 显存跑起来完全没问题，回复速度可能比 3B 略慢一点。）
+  14B 模型冷启动较慢，普通请求超时已设为 60 秒（`REQUEST_TIMEOUT`），第一句回复可能要等几秒。
 - 对话页顶部若出现"本地大模型未连接"提示，说明 `ollama serve` 没在跑，此时该角色会
   自动使用模板引擎回复，不影响正常使用。
 
