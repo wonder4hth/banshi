@@ -2,12 +2,10 @@
 
 虚拟角色陪伴 + 番茄专注的网页应用，本地个人使用版。无需任何 API key。
 
-对话有两套引擎，创建角色时可选（也可以在编辑页随时切换）：
-- **本地大模型**（默认，`llm_engine.py`）：调用本机 Ollama（`http://127.0.0.1:11434`），
-  真正根据你写的人设描述 + 对话上下文现场生成台词、现场构思委托，更有"活人感"。
-  当前默认使用 `qwen3:14b`（首次需 `ollama pull qwen3:14b`，约 9GB）。若 Ollama 没启动，会自动、无感地退回模板引擎，
-  不会报错或卡住。
-- **简单模板**（`dialogue.py`）：固定短句库按"说话风格 × 分心态度"组合，零延迟、完全离线。
+对话由本地大模型生成（`llm_engine.py`）：调用本机 Ollama（`http://127.0.0.1:11434`），
+真正根据你写的人设描述 + 对话上下文现场生成台词、现场构思委托，更有"活人感"。
+当前默认使用 `qwen3:14b`（首次需 `ollama pull qwen3:14b`，约 9GB）。若 Ollama 没启动，会自动、无感地
+退回 `dialogue.py` 里的预设台词，不会报错或卡住。
 
 ## 运行
 
@@ -40,6 +38,26 @@ uv pip install --python .venv/bin/python -r requirements.txt
 
 停止服务：`Ctrl+C`。
 
+## Windows 安装包（BanShi-Setup.exe，自带大模型）
+
+在 WSL 里运行：
+
+```bash
+./installer/build.sh
+```
+
+生成 `C:\Users\<你>\banshi-build\out\BanShi-Setup.exe`（约 3.2GB，单个文件），发给别人双击即可安装，
+不需要管理员权限，也不需要另外安装 Python 或 Ollama。
+
+- 安装包里自带 Ollama 和 `qwen3:4b-instruct` 模型（2.5GB）。打开伴时时会在后台启动一个私有的 Ollama，
+  关闭窗口时一并退出；有 NVIDIA 显卡会自动用显卡（CUDA 12），没有就用 CPU
+- 装到 `%LOCALAPPDATA%\Programs\BanShi`，数据存放在 `%APPDATA%\BanShi\`，卸载时保留数据
+- 缺少 Edge WebView2 的电脑（部分 Windows 10）会在安装时自动补装
+- 构建需要 Windows 上装好 Python 3.12 和 Inno Setup 6（`winget install Python.Python.3.12 JRSoftware.InnoSetup`）
+- 下载过的 Ollama、模型、WebView2 缓存在 `banshi-build\cache`，重新打包只需几分钟；
+  想更新 Ollama 版本就删掉 `cache\ollama*`。换模型：`./installer/build.sh -Model qwen3:8b`
+  （注意 `qwen3:4b` 是只会思考的版本，关不掉思考过程，所以用 `qwen3:4b-instruct`）
+
 ## 已实现的 MVP 功能
 
 - 账号系统（注册 / 登录 / 退出，密码哈希存储）
@@ -64,8 +82,8 @@ uv pip install --python .venv/bin/python -r requirements.txt
   OLLAMA_MODEL=qwen3:8b .venv/bin/python app.py
   ```
   14B 模型冷启动较慢，普通请求超时已设为 60 秒（`REQUEST_TIMEOUT`），第一句回复可能要等几秒。
-- 对话页顶部若出现"本地大模型未连接"提示，说明 `ollama serve` 没在跑，此时该角色会
-  自动使用模板引擎回复，不影响正常使用。
+- 对话页顶部若出现"本地大模型未连接"提示，说明 `ollama serve` 没在跑，此时会
+  自动使用预设台词回复，不影响正常使用。
 
 ## 之后想接入云端 LLM（Anthropic API 等）时
 
@@ -78,8 +96,11 @@ key 从环境变量读取，不需要改动 `app.py` 或模板。
 ```
 app.py          Flask 路由与业务逻辑
 db.py           SQLite schema 与连接
-dialogue.py     本地规则模板引擎 + 头像/任务库（两套引擎共用的兜底数据）
+dialogue.py     预设台词（大模型连不上时的兜底）+ 头像/任务库
 llm_engine.py   本地大模型引擎（调用 Ollama），失败时自动退回 dialogue.py
+mailbox.py      信箱：每天定时挑出陪伴最多的角色写信
+desktop.py      桌面版入口（pywebview 窗口 + 免登录 + 启动自带的 Ollama）
+installer/      Windows 安装包构建脚本（build.sh → build.ps1 → Inno Setup）
 templates/      Jinja 页面模板
 static/css/     样式
 banshi.db       运行后自动生成的数据库（不提交）

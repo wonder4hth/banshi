@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ agent['name'] }} · 伴时{% endblock %}
+{% block body_class %}chat-page{% endblock %}
 {% block content %}
 {% set av = avatar_map.get(agent['avatar']) %}
 <div class="chat-header">
@@ -8,11 +9,20 @@
     <div class="name">{{ agent['name'] }}</div>
     <div class="persona">{{ styles[agent['speaking_style']] }} · {{ attitudes[agent['distraction_attitude']] }}</div>
   </div>
+  {% if not active_task %}
+  <form class="chat-reset" id="chat-reset-form" method="post" action="{{ url_for('chat_reset', agent_id=agent['id']) }}">
+    <button class="toolbar-btn" type="submit">🔄 重启聊天</button>
+  </form>
+  {% endif %}
 </div>
 
-{% if agent['engine'] == 'llm' and not llm_ready %}
+{% if not llm_ready %}
 <div class="locked-note">
-  本地大模型未连接，暂时用简单模板回复。运行 <code>ollama serve</code> 后刷新本页即可恢复「{{ agent['name'] }}」的智能对话。
+  {% if single_user %}
+  智能对话服务没有启动，暂时用预设台词回复。关闭伴时再重新打开，即可恢复「{{ agent['name'] }}」的智能对话。
+  {% else %}
+  本地大模型未连接，暂时用预设台词回复。运行 <code>ollama serve</code> 后刷新本页即可恢复「{{ agent['name'] }}」的智能对话。
+  {% endif %}
 </div>
 {% endif %}
 
@@ -74,6 +84,7 @@
 
 <script>
 const AGENT_ID = {{ agent['id'] }};
+const AGENT_NAME = {{ agent['name']|tojson }};
 const chatLog = document.getElementById('chat-log');
 const chatInput = document.getElementById('chat-input');
 const chatSend = document.getElementById('chat-send');
@@ -81,6 +92,7 @@ const taskModal = document.getElementById('task-modal');
 
 function scrollToBottom() { chatLog.scrollTop = chatLog.scrollHeight; }
 scrollToBottom();
+window.addEventListener('load', scrollToBottom);  // 字体/emoji 加载后高度可能变化，再对齐一次
 
 function appendBubble(sender, text) {
   const row = document.createElement('div');
@@ -186,6 +198,15 @@ if (chatSend) {
   const sendMessage = () => sendToAgent(chatInput.value.trim(), false);
   chatSend.addEventListener('click', sendMessage);
   chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+}
+
+const resetForm = document.getElementById('chat-reset-form');
+if (resetForm) {
+  resetForm.addEventListener('submit', (e) => {
+    if (!confirm(`重启聊天会清空与「${AGENT_NAME}」的聊天记录，开启新话题。\n记录中心的故事日志会保留。确定吗？`)) {
+      e.preventDefault();
+    }
+  });
 }
 
 if (summonBtn) {

@@ -6,15 +6,25 @@
   <title>{% block title %}伴时{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}{{ ' desktop' if single_user }}">
   <div class="app-shell">
     {% if current_user %}
     <header class="navbar">
       <div class="brand">伴时</div>
+      {# 专注计时中导航全部锁定：渲染成不可点的 span，交付/放弃后回到对话页自然解锁 #}
+      {% set nav_locked = request.endpoint == 'focus' %}
+      {% macro nav_link(endpoint, label, active, badge=0) -%}
+        {%- if nav_locked -%}
+        <span class="nav-locked" title="专注中，完成或放弃委托后才能离开">{{ label }}</span>
+        {%- else -%}
+        <a href="{{ url_for(endpoint) }}" class="{{ 'active' if active else '' }}">{{ label }}{% if badge %}<span class="nav-badge">{{ badge }}</span>{% endif %}</a>
+        {%- endif -%}
+      {%- endmacro %}
       <nav>
-        <a href="{{ url_for('agents_list') }}" class="{{ 'active' if request.endpoint == 'agents_list' else '' }}">角色</a>
-        <a href="{{ url_for('records') }}" class="{{ 'active' if request.endpoint == 'records' else '' }}">记录中心</a>
-        <a href="{{ url_for('logout') }}">退出</a>
+        {{ nav_link('agents_list', '角色', request.endpoint == 'agents_list') }}
+        {{ nav_link('records', '记录中心', request.endpoint == 'records') }}
+        {{ nav_link('mailbox_list', '信箱', request.endpoint in ('mailbox_list', 'letter_view'), unread_letters) }}
+        {% if not single_user %}{{ nav_link('logout', '退出', false) }}{% endif %}
       </nav>
     </header>
     {% endif %}

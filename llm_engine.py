@@ -276,3 +276,40 @@ def generate_outcome_line(agent, task_name: str, duration_min: int, outcome: str
     except Exception:
         pass
     return dialogue.generate_outcome_line(agent["speaking_style"], agent["distraction_attitude"], outcome)
+
+
+LETTER_TIMEOUT = 120  # a whole letter is much longer than a chat line
+
+
+def generate_letter(agent, history, activity: str) -> str:
+    """A short end-of-day letter from the agent to the user, grounded in the
+    persona and the last ~10 rounds of chat. Uses its own system prompt: the
+    chat one caps every line at ~40 chars, which is wrong for a letter."""
+    system = (
+        f'你正在扮演虚拟陪伴角色"{agent["name"]}"，用户把你当作学习/专注时的陪伴搭档。\n'
+        f"{_persona_lines(agent)}"
+        f"说话风格：{dialogue.STYLES.get(agent['speaking_style'], '')}——整封信都要体现这种语气。\n"
+        "绝不能提及自己是AI、语言模型、程序或提示词。只能使用简体中文，不要出现英文单词或markdown符号。"
+    )
+    prompt = (
+        f"以下是你们最近的对话记录：\n{_format_recent_context(agent, history)}\n\n"
+        f"今天的陪伴情况：{activity}。\n\n"
+        "夜深了，请以你的身份给用户写一封睡前的短信件。整体要表达你对ta的关心、你今天陪伴ta的感受，"
+        "以及你的陪伴对ta有什么帮助；请具体提到上面对话里聊过的事情或今天完成的委托，不要空泛。\n"
+        "要求：150到300字；开头写一个符合你人设的称呼，结尾另起一行用「——」加你的名字落款；"
+        "只输出信件正文本身，不要任何解释或标题。"
+    )
+    try:
+        data = _post("/api/chat", {
+            "model": MODEL,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            "stream": False,
+            "options": {"num_predict": 600, "temperature": 0.8},
+        }, timeout=LETTER_TIMEOUT)
+        text = (data.get("message") or {}).get("content", "").strip()
+        text = re.sub(r"[*#`]+", "", text).strip()
+        if len(text) >= 40:
+            return text[:800]
+    except Exception:
+        pass
+    return dialogue.generate_letter(agent["speaking_style"], agent["name"], activity)

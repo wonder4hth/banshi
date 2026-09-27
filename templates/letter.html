@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ letter['agent_name'] }} 的来信 · 伴时{% endblock %}
+{% block content %}
+{% set av = avatar_map.get(letter['agent_avatar'], avatars[0]) %}
+<a class="hint back-link" href="{{ url_for('mailbox_list') }}">← 返回信箱</a>
+<article class="letter-paper">
+  <header class="letter-head">
+    <div class="avatar" style="background: {{ av.color }}22; color: {{ av.color }};">{{ av.emoji }}</div>
+    <div>
+      <div class="from">{{ letter['agent_name'] }}</div>
+      <div class="hint">{{ letter['letter_date'] }}</div>
+    </div>
+  </header>
+  <div class="letter-body">{{ letter['content'] }}</div>
+</article>
+{% endblock %}

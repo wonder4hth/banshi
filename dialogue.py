@@ -1,12 +1,9 @@
-"""Local rule-based dialogue engine.
+"""Rule-based fallback lines, used by llm_engine.py whenever Ollama is unreachable.
 
 No external LLM call, no API key needed. Character "voice" is produced by
 combining two persona axes chosen at agent-creation time:
   - speaking_style        (说话风格): how the character talks
   - distraction_attitude  (对待分心态度): how they react when you don't finish
-
-Swap-in point for a real LLM later: replace `generate_reply()` /
-`generate_outcome_line()` bodies with an API call, keep the same signature.
 """
 import random
 import re
@@ -24,15 +21,69 @@ ATTITUDES = {
     "stern": "严厉责备",
 }
 
+# Picker sections, in display order. Avatar ids are stored on agents, so
+# existing ids must never be renamed or removed — only appended to.
+AVATAR_GROUPS = ["动物", "自然", "奇幻", "物件"]
+
 AVATARS = [
-    {"id": "fox", "emoji": "🦊", "color": "#e8996b"},
-    {"id": "cat", "emoji": "🐱", "color": "#c9a4e0"},
-    {"id": "owl", "emoji": "🦉", "color": "#8a9bd6"},
-    {"id": "wolf", "emoji": "🐺", "color": "#7d8ba1"},
-    {"id": "rabbit", "emoji": "🐰", "color": "#f0a8bd"},
-    {"id": "dragon", "emoji": "🐉", "color": "#6ec2a8"},
-    {"id": "moon", "emoji": "🌙", "color": "#5b6b9e"},
-    {"id": "star", "emoji": "✨", "color": "#e0b84f"},
+    {"id": "fox", "emoji": "🦊", "color": "#e8996b", "group": "动物"},
+    {"id": "cat", "emoji": "🐱", "color": "#c9a4e0", "group": "动物"},
+    {"id": "owl", "emoji": "🦉", "color": "#8a9bd6", "group": "动物"},
+    {"id": "wolf", "emoji": "🐺", "color": "#7d8ba1", "group": "动物"},
+    {"id": "rabbit", "emoji": "🐰", "color": "#f0a8bd", "group": "动物"},
+    {"id": "dragon", "emoji": "🐉", "color": "#6ec2a8", "group": "奇幻"},
+    {"id": "moon", "emoji": "🌙", "color": "#5b6b9e", "group": "自然"},
+    {"id": "star", "emoji": "✨", "color": "#e0b84f", "group": "自然"},
+    # 动物
+    {"id": "dog", "emoji": "🐶", "color": "#d4a373", "group": "动物"},
+    {"id": "panda", "emoji": "🐼", "color": "#8d99ae", "group": "动物"},
+    {"id": "bear", "emoji": "🐻", "color": "#b07d62", "group": "动物"},
+    {"id": "tiger", "emoji": "🐯", "color": "#e9a23b", "group": "动物"},
+    {"id": "lion", "emoji": "🦁", "color": "#d9a441", "group": "动物"},
+    {"id": "koala", "emoji": "🐨", "color": "#9aa5b1", "group": "动物"},
+    {"id": "hamster", "emoji": "🐹", "color": "#e5b88a", "group": "动物"},
+    {"id": "penguin", "emoji": "🐧", "color": "#6c8ebf", "group": "动物"},
+    {"id": "chick", "emoji": "🐥", "color": "#e6c84f", "group": "动物"},
+    {"id": "frog", "emoji": "🐸", "color": "#7fb069", "group": "动物"},
+    {"id": "turtle", "emoji": "🐢", "color": "#6a9f6e", "group": "动物"},
+    {"id": "deer", "emoji": "🦌", "color": "#b5835a", "group": "动物"},
+    {"id": "whale", "emoji": "🐳", "color": "#5fa8d3", "group": "动物"},
+    {"id": "octopus", "emoji": "🐙", "color": "#d97a8c", "group": "动物"},
+    {"id": "butterfly", "emoji": "🦋", "color": "#6b9bd1", "group": "动物"},
+    # 自然
+    {"id": "sun", "emoji": "🌞", "color": "#e8b04a", "group": "自然"},
+    {"id": "rainbow", "emoji": "🌈", "color": "#c98bb9", "group": "自然"},
+    {"id": "cloud", "emoji": "☁️", "color": "#8fb3cf", "group": "自然"},
+    {"id": "snowflake", "emoji": "❄️", "color": "#7fb7d9", "group": "自然"},
+    {"id": "wave", "emoji": "🌊", "color": "#4f8fbf", "group": "自然"},
+    {"id": "fire", "emoji": "🔥", "color": "#e07a4f", "group": "自然"},
+    {"id": "blossom", "emoji": "🌸", "color": "#e8a0b4", "group": "自然"},
+    {"id": "sunflower", "emoji": "🌻", "color": "#d9b13b", "group": "自然"},
+    {"id": "maple", "emoji": "🍁", "color": "#cf6f4a", "group": "自然"},
+    {"id": "clover", "emoji": "🍀", "color": "#6aaa64", "group": "自然"},
+    {"id": "mushroom", "emoji": "🍄", "color": "#c96a5a", "group": "自然"},
+    {"id": "planet", "emoji": "🪐", "color": "#b89560", "group": "自然"},
+    # 奇幻
+    {"id": "unicorn", "emoji": "🦄", "color": "#c7a0d9", "group": "奇幻"},
+    {"id": "mage", "emoji": "🧙", "color": "#7b6fb3", "group": "奇幻"},
+    {"id": "fairy", "emoji": "🧚", "color": "#d98fc0", "group": "奇幻"},
+    {"id": "vampire", "emoji": "🧛", "color": "#a3565e", "group": "奇幻"},
+    {"id": "ghost", "emoji": "👻", "color": "#9a9fb5", "group": "奇幻"},
+    {"id": "robot", "emoji": "🤖", "color": "#7f9aa8", "group": "奇幻"},
+    {"id": "alien", "emoji": "👽", "color": "#74b37f", "group": "奇幻"},
+    {"id": "crystal", "emoji": "🔮", "color": "#9a7cc4", "group": "奇幻"},
+    {"id": "crown", "emoji": "👑", "color": "#d4a84a", "group": "奇幻"},
+    # 物件
+    {"id": "books", "emoji": "📚", "color": "#b5835a", "group": "物件"},
+    {"id": "quill", "emoji": "✒️", "color": "#5f6b85", "group": "物件"},
+    {"id": "tea", "emoji": "🍵", "color": "#7fa36b", "group": "物件"},
+    {"id": "coffee", "emoji": "☕", "color": "#9c7156", "group": "物件"},
+    {"id": "cake", "emoji": "🍰", "color": "#e3a0a8", "group": "物件"},
+    {"id": "music", "emoji": "🎵", "color": "#7c8fd1", "group": "物件"},
+    {"id": "palette", "emoji": "🎨", "color": "#d58a5b", "group": "物件"},
+    {"id": "lantern", "emoji": "🏮", "color": "#d0604f", "group": "物件"},
+    {"id": "rocket", "emoji": "🚀", "color": "#6f86c7", "group": "物件"},
+    {"id": "hourglass", "emoji": "⏳", "color": "#c49a52", "group": "物件"},
 ]
 
 # ---- greetings shown when entering a chat -------------------------------
@@ -210,19 +261,28 @@ def generate_outcome_line(style: str, attitude: str, outcome: str) -> str:
     return random.choice(OUTCOME_LINES[style][attitude][outcome])
 
 
-def generate_reply(style: str, user_text: str, force: bool = False):
-    """Return (reply_text, task_offer) — task_offer is (name, desc) or None.
-
-    `force=True` skips the keyword gate entirely — used when the user
-    manually summons a task via the chat page's bottom toolbar, to cover
-    cases the automatic keyword/LLM detection missed.
-    """
-    if force or detects_focus_intent(user_text):
-        name, desc = pick_task()
-        return generate_task_offer_line(style), (name, desc)
-    return generate_idle_reply(style), None
-
-
 def build_story_entry(agent_name: str, task_name: str, minutes: int, outcome: str) -> str:
     tpl = STORY_TEMPLATES.get(outcome, STORY_TEMPLATES["complete"])
     return tpl.format(agent=agent_name, task=task_name, minutes=minutes)
+
+
+# ---- daily letters (template fallback when the LLM is unavailable) ------
+LETTER_TEMPLATES = {
+    "quiet": "见字如面。\n\n今天{activity}。我话不多，但一直都在旁边看着。\n你比自己以为的更能坚持。累了就早点休息，明天我还在。\n\n——{agent}",
+    "gentle": "亲爱的你：\n\n今天{activity}，辛苦啦。每一次你愿意坐下来开始，我都觉得很了不起。\n不管结果怎么样，你在认真对待自己的时间，这就已经很好了。今晚好好休息，明天我们再一起加油。\n\n——一直陪着你的{agent}",
+    "energetic": "嘿！今天也超棒的！\n\n今天{activity}，我全都看在眼里哦！\n有你一起的日子每天都很热闹，明天也要元气满满地出发！我会在老地方等你！\n\n——{agent}",
+    "calm": "致你：\n\n今日记录：{activity}。\n持续的投入会慢慢累积成看得见的变化，你正在这条路上。今晚早些休整，明日继续按计划推进。\n\n——{agent}",
+}
+
+
+def describe_day(focus_minutes: int, task_names, message_count: int) -> str:
+    if focus_minutes and task_names:
+        return f"我们一起专注了{focus_minutes}分钟，进行了「{'」「'.join(task_names[:3])}」委托"
+    if message_count:
+        return f"我们聊了{message_count}句"
+    return "我们又一起度过了一天"
+
+
+def generate_letter(style: str, agent_name: str, activity: str) -> str:
+    tpl = LETTER_TEMPLATES.get(style, LETTER_TEMPLATES["calm"])
+    return tpl.format(agent=agent_name, activity=activity)

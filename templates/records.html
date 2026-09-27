@@ -34,18 +34,46 @@
 <div id="panel-story" style="display:none; flex-direction:column; gap:12px;">
   {% if stories %}
   {% for s in stories %}
-  <div class="story-item">
-    <div class="date">{{ s['entry_date'] }}</div>
+  <div class="story-item" data-story-id="{{ s['id'] }}">
+    <div class="story-head">
+      <div class="date"><time class="local-time" datetime="{{ s['created_at'] }}">{{ s['entry_date'] }}</time></div>
+      <button type="button" class="story-delete" title="删除这条日志">删除</button>
+    </div>
     <div class="content">{{ s['content'] }}</div>
+    {% if s['task_desc'] %}<div class="desc">📋 {{ s['task_desc'] }}</div>{% endif %}
     {% if s['task_note'] %}<div class="note">📝 {{ s['task_note'] }}</div>{% endif %}
   </div>
   {% endfor %}
-  {% else %}
-  <div class="empty-state">还没有故事，快去和伙伴接一份委托吧 ✨</div>
   {% endif %}
+  <div class="empty-state" id="story-empty" {% if stories %}hidden{% endif %}>还没有故事，快去和伙伴接一份委托吧 ✨</div>
 </div>
 
 <script>
+// created_at 存的是 UTC，这里按浏览器本地时区显示到秒：YYYY-MM-DD HH:mm:ss
+document.querySelectorAll('time.local-time').forEach(el => {
+  const d = new Date(el.getAttribute('datetime'));
+  if (isNaN(d)) return;  // 解析失败就保留服务端给的日期
+  const p = n => String(n).padStart(2, '0');
+  el.textContent = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} `
+    + `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+});
+document.querySelectorAll('.story-delete').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!confirm('确定删除这条日志吗？删除后无法恢复（数据看板的统计不受影响）。')) return;
+    const item = btn.closest('.story-item');
+    btn.disabled = true;
+    try {
+      const res = await fetch(`/stories/${item.dataset.storyId}/delete`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      item.remove();
+      if (!document.querySelector('.story-item')) document.getElementById('story-empty').hidden = false;
+    } catch (e) {
+      btn.disabled = false;
+      alert('删除失败，请稍后再试');
+    }
+  });
+});
+
 function switchTab(which) {
   document.getElementById('tab-board').classList.toggle('active', which === 'board');
   document.getElementById('tab-story').classList.toggle('active', which === 'story');

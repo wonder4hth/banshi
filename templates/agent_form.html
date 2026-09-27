@@ -9,13 +9,16 @@
 
   <div class="field">
     <label>头像</label>
+    {% set current = agent['avatar'] if agent else avatars[0].id %}
+    {% for group in avatar_groups %}
+    <div class="avatar-group-label">{{ group }}</div>
     <div class="avatar-picker">
-      {% for av in avatars %}
-      {% set current = agent['avatar'] if agent else avatars[0].id %}
+      {% for av in avatars if av.group == group %}
       <input type="radio" name="avatar" id="av-{{ av.id }}" value="{{ av.id }}" {{ 'checked' if current == av.id else '' }}>
       <label for="av-{{ av.id }}" style="background: {{ av.color }}22; color: {{ av.color }};">{{ av.emoji }}</label>
       {% endfor %}
     </div>
+    {% endfor %}
     <div class="hint" style="margin-top:6px;">MVP 内置默认头像图库，暂不支持自定义图片上传</div>
   </div>
 
@@ -28,19 +31,7 @@
   <div class="field">
     <label>详细设定（可选）</label>
     <textarea name="profile" class="profile-input" placeholder="可以写：&#10;· 性格：外冷内热，话少但观察入微&#10;· 外貌：总穿一件洗旧的青色长衫，袖口沾着墨迹&#10;· 经历：出身没落书香门第，十年来在藏书楼替人抄书&#10;· 习惯与口头禅：思考时会轻敲桌面；常说「不急，慢慢来」&#10;· 喜好与厌恶：喜欢雨天和松烟墨，讨厌半途而废&#10;· 与你的关系：把你当作难得能说上话的同窗">{{ agent['profile'] if agent else '' }}</textarea>
-    <div class="hint" style="margin-top:6px;">不会在界面上显示，只用来让本地大模型塑造角色。写得越具体，角色越丰满；简单模板引擎不使用这一项。</div>
-  </div>
-
-  <div class="field">
-    <label>对话引擎</label>
-    <div class="style-grid">
-      {% for key, label in engines.items() %}
-      {% set current = agent['engine'] if agent else 'llm' %}
-      <input type="radio" name="engine" id="engine-{{ key }}" value="{{ key }}" {{ 'checked' if current == key else '' }}>
-      <label for="engine-{{ key }}">{{ label }}</label>
-      {% endfor %}
-    </div>
-    <div class="hint" style="margin-top:6px;">本地大模型：基于人设描述实时生成对话，更有代入感，需要本机运行 Ollama（无需 API key，若未连接会自动退回简单模板）。简单模板：固定短句库，速度最快，完全离线。</div>
+    <div class="hint" style="margin-top:6px;">不会在界面上显示，只用来让本地大模型塑造角色。写得越具体，角色越丰满。</div>
   </div>
 
   <div class="field">

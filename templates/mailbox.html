@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}信箱 · 伴时{% endblock %}
+{% block content %}
+<div class="hint">每天 {{ letter_time }}，当天陪伴你最多的伙伴会给你写一封信。</div>
+
+{% if letters %}
+<div class="letter-list">
+  {% for l in letters %}
+  {% set av = avatar_map.get(l['agent_avatar'], avatars[0]) %}
+  <a class="letter-card {{ 'unread' if not l['read_at'] }}" href="{{ url_for('letter_view', letter_id=l['id']) }}">
+    <div class="avatar" style="background: {{ av.color }}22; color: {{ av.color }};">{{ av.emoji }}</div>
+    <div class="letter-meta">
+      <div class="from">来自 {{ l['agent_name'] }} 的信</div>
+      <div class="preview">{{ l['content'] | replace('\n', ' ') | truncate(40, True, '…') }}</div>
+    </div>
+    <div class="letter-date">{{ l['letter_date'] }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">信箱还是空的。今天和伙伴一起专注或聊聊天，晚上 {{ letter_time }} 就可能收到来信 ✉️</div>
+{% endif %}
+{% endblock %}

@@ -28,12 +28,15 @@
 
 <script>
 const TASK_ID = {{ task['id'] }};
-const DURATION_SEC = {{ task['duration_min'] }} * 60;
 const CHAT_URL = "{{ url_for('chat', agent_id=agent['id']) }}";
 const clockEl = document.getElementById('clock');
 const deliverModal = document.getElementById('deliver-modal');
-let remaining = DURATION_SEC;
+// 用固定的结束时刻倒推剩余时间，而不是每秒减 1：
+// 浏览器会限流/暂停后台标签页里的 setInterval，逐秒递减会“偷偷暂停”。
+const END_AT = Date.now() + {{ remaining_sec }} * 1000;
+let remaining = {{ remaining_sec }};
 let timerHandle = null;
+let finished = false;
 let defaultOutcome = 'complete';
 
 // ---- 备注自动保存（停止输入 800ms 后保存，刷新页面不丢失）
@@ -66,20 +69,22 @@ function render() {
   const s = Math.floor(remaining % 60).toString().padStart(2, '0');
   clockEl.textContent = `${m}:${s}`;
 }
-render();
-
-timerHandle = setInterval(() => {
-  remaining -= 1;
+function tick() {
+  if (finished) return;
+  remaining = Math.max(0, Math.ceil((END_AT - Date.now()) / 1000));
+  render();
   if (remaining <= 0) {
-    remaining = 0;
-    render();
+    finished = true;
     clearInterval(timerHandle);
     defaultOutcome = 'complete';
     openDeliverModal();
-    return;
   }
-  render();
-}, 1000);
+}
+
+tick();
+timerHandle = setInterval(tick, 250);
+// 切回标签页时立刻校准，不用等下一次 tick
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
 
 function openDeliverModal() {
   document.querySelector(`input[name="outcome"][value="${defaultOutcome}"]`).checked = true;
@@ -87,6 +92,7 @@ function openDeliverModal() {
 }
 
 document.getElementById('abandon-btn').addEventListener('click', () => {
+  finished = true;
   clearInterval(timerHandle);
   defaultOutcome = 'gave_up';
   openDeliverModal();

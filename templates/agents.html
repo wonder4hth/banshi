@@ -16,7 +16,6 @@
         <div class="tag-row">
           <span class="tag">{{ styles[agent['speaking_style']] }}</span>
           <span class="tag">{{ attitudes[agent['distraction_attitude']] }}</span>
-          <span class="tag">{{ '🧠 ' + engines[agent['engine']] if agent['engine'] == 'llm' else '📋 ' + engines[agent['engine']] }}</span>
         </div>
       </div>
     </div>
@@ -25,7 +24,8 @@
       <a class="btn block" href="{{ url_for('chat', agent_id=agent['id']) }}">进入陪伴</a>
       <a class="btn secondary" href="{{ url_for('agent_edit', agent_id=agent['id']) }}">编辑</a>
       <form method="post" action="{{ url_for('agent_delete', agent_id=agent['id']) }}"
-            onsubmit="return confirm('确定要删除「{{ agent['name'] }}」吗？相关记录也会一并删除。');">
+            data-confirm="确定要删除「{{ agent['name'] }}」吗？聊天记录会被清空，记录中心的故事日志会保留。"
+            onsubmit="return confirm(this.dataset.confirm);">
         <button class="btn danger" type="submit">删除</button>
       </form>
     </div>
